@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/MJ-NMR/pegeon/client"
-	"github.com/MJ-NMR/pegeon/server"
+	"github.com/MJ-NMR/pigeon/client"
+	"github.com/MJ-NMR/pigeon/server"
 )
 
 func main() {
