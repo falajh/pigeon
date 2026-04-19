@@ -1,15 +1,21 @@
 package server
 
 import (
-	// "bufio"
 	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"strings"
+
+	"github.com/charmbracelet/x/ansi"
 )
 
-var users = make(map[string]*net.Conn)
+var (
+	users       = make(map[string]*net.Conn)
+	normalStyle = ansi.NewStyle(ansi.AttrGreenForegroundColor)
+	errStyle    = ansi.NewStyle(ansi.AttrRedForegroundColor)
+)
 
 func Listen(port string) {
 	l, err := net.Listen("tcp", "localhost:"+port)
@@ -17,11 +23,11 @@ func Listen(port string) {
 		log.Fatal(err)
 	}
 
-	log.Println("server start Listen on ", l.Addr())
+	log.Println(normalStyle.Styled("Server start Listen on " + l.Addr().String()))
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			log.Print(err)
+			log.Print(errStyle.Styled(err.Error()))
 		}
 		go login(conn)
 	}
@@ -33,9 +39,11 @@ func login(conn net.Conn) {
 	for {
 		n, err := conn.Read(input)
 		if err != nil {
-			conn.Write([]byte{3})
-			log.Println(err)
-			continue
+			if err != io.EOF {
+				conn.Write([]byte{3})
+				log.Print(errStyle.Styled(err.Error()))
+				continue
+			}
 		}
 
 		username := string(input[:n-1])
@@ -49,20 +57,22 @@ func login(conn net.Conn) {
 
 		users[username] = &conn
 		conn.Write([]byte{1})
-		log.Println("+++ added user " + username)
+		log.Println(normalStyle.Styled("+++ Added user " + username))
 		go messageReader(username)
 		return
 	}
 }
 
 func messageReader(username string) {
-	println("massage reader")
 	conn := *users[username]
 	reader := bufio.NewReader(conn)
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
-			log.Println(err)
+			if err != io.EOF {
+				log.Print(errStyle.Styled(username + " have Error: " + err.Error()))
+			}
+			log.Println(normalStyle.Styled("--- Deleting user " + username))
 			delete(users, username)
 			return
 		}
@@ -81,7 +91,8 @@ func hub(username, msg string) {
 		fmt.Println("sending to ", resever)
 		_, err := (*users[resever]).Write([]byte(fullmsg))
 		if err != nil {
-			log.Println(err)
+			log.Print(errStyle.Styled(resever + " have Error: " + err.Error()))
+			log.Println(normalStyle.Styled("Deleting user " + resever))
 			delete(users, resever)
 		}
 	}
